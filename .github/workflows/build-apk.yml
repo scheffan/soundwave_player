@@ -1,0 +1,56 @@
+name: Compilar APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+
+      - name: Dependencias
+        run: flutter pub get
+
+      - name: Análisis y tests
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Compilar APK
+        run: flutter build apk --release
+
+      - name: Renombrar APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk SoundWave-${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoundWave-apk
+          path: SoundWave-${{ github.run_number }}.apk
+
+      # Cada cambio en main publica una versión descargable desde la pestaña Releases.
+      - name: Publicar release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: SoundWave build ${{ github.run_number }}
+          body: APK de prueba compilado automáticamente desde ${{ github.sha }}.
+          files: SoundWave-${{ github.run_number }}.apk
