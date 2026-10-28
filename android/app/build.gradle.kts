@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.soundwave.soundwave_player"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android pide compilar contra Android 37.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
