@@ -204,6 +204,15 @@ class MediaLibrary extends ChangeNotifier {
   Uint8List? cachedArtwork(int songId, {int size = 200}) =>
       _artCache['$songId@$size'];
 
+  static const _volumeEvents = EventChannel('soundwave/volume');
+
+  /// Volumen multimedia del teléfono (0 a 1). Se actualiza también con los botones físicos.
+  static Stream<double> get systemVolume =>
+      _volumeEvents.receiveBroadcastStream().map((v) => (v as num).toDouble());
+
+  static Future<void> setSystemVolume(double value) =>
+      _channel.invokeMethod('setVolume', {'value': value});
+
   /// Abre la app de radio FM de fábrica, si el teléfono tiene una.
   static Future<bool> openFmRadio() async =>
       await _channel.invokeMethod<bool>('openFmRadio') ?? false;

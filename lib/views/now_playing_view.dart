@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
@@ -33,8 +35,12 @@ class NowPlayingView extends StatelessWidget {
     if (song == null && radio == null) {
       return const Scaffold(body: Center(child: Text('Nada reproduciendo')));
     }
-    final width = MediaQuery.sizeOf(context).width;
-    final artSize = (width - 64).clamp(160.0, 420.0);
+    final screen = MediaQuery.sizeOf(context);
+    // En pantallas bajas achicamos la tapa para que entren todos los controles.
+    final artSize = min(
+      (screen.width - 64).clamp(160.0, 420.0),
+      screen.height * 0.38,
+    );
 
     return Scaffold(
       body: Container(
@@ -141,7 +147,9 @@ class NowPlayingView extends StatelessWidget {
                   const _LiveBadge(),
                 const SizedBox(height: 8),
                 _Controls(isRadio: radio != null),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                const _VolumeBar(),
+                const SizedBox(height: 4),
                 _BottomActions(isRadio: radio != null),
                 const SizedBox(height: 12),
               ],
@@ -275,6 +283,59 @@ class _SeekBarState extends State<_SeekBar> {
                   ),
                 ],
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Volumen multimedia del teléfono. Se mueve solo si usás los botones físicos.
+class _VolumeBar extends StatefulWidget {
+  const _VolumeBar();
+
+  @override
+  State<_VolumeBar> createState() => _VolumeBarState();
+}
+
+class _VolumeBarState extends State<_VolumeBar> {
+  final Stream<double> _volume = MediaLibrary.systemVolume;
+  double? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<double>(
+      stream: _volume,
+      builder: (context, snap) {
+        final volume = _dragging ?? snap.data ?? 0.5;
+        return Row(
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.volume_mute_rounded,
+                color: AppColors.textMuted,
+              ),
+              tooltip: 'Bajar volumen',
+              onPressed: () => MediaLibrary.setSystemVolume(volume - 0.1),
+            ),
+            Expanded(
+              child: Slider(
+                value: volume.clamp(0.0, 1.0),
+                onChanged: (v) {
+                  setState(() => _dragging = v);
+                  MediaLibrary.setSystemVolume(v);
+                },
+                onChangeEnd: (_) => setState(() => _dragging = null),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.volume_up_rounded,
+                color: AppColors.textMuted,
+              ),
+              tooltip: 'Subir volumen',
+              onPressed: () => MediaLibrary.setSystemVolume(volume + 0.1),
             ),
           ],
         );

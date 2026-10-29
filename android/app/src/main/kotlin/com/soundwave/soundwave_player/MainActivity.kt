@@ -1,18 +1,23 @@
 package com.soundwave.soundwave_player
 
 import android.content.ContentUris
+import android.content.Context
 import android.content.Intent
+import android.database.ContentObserver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Size
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
@@ -23,11 +28,48 @@ import java.util.concurrent.Executors
 class MainActivity : AudioServiceActivity() {
     private val worker = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    private var volumeObserver: ContentObserver? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "soundwave/media")
             .setMethodCallHandler { call, result -> handle(call, result) }
+
+        // Avisa a Flutter cada vez que cambia el volumen multimedia (por ejemplo,
+        // con los botones físicos), para que la barra de volumen se mueva sola.
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "soundwave/volume")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                    events.success(currentVolume())
+                    volumeObserver = object : ContentObserver(mainHandler) {
+                        override fun onChange(selfChange: Boolean) {
+                            events.success(currentVolume())
+                        }
+                    }
+                    contentResolver.registerContentObserver(
+                        Settings.System.CONTENT_URI, true, volumeObserver!!,
+                    )
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    volumeObserver?.let { contentResolver.unregisterContentObserver(it) }
+                    volumeObserver = null
+                }
+            })
+    }
+
+    // Volumen multimedia del teléfono, de 0.0 a 1.0.
+    private fun currentVolume(): Double {
+        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val now = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        return if (max > 0) now.toDouble() / max else 0.0
+    }
+
+    private fun setVolume(fraction: Double) {
+        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val index = Math.round(fraction.coerceIn(0.0, 1.0) * max).toInt()
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, index, 0)
     }
 
     private fun handle(call: MethodCall, result: MethodChannel.Result) {
@@ -42,6 +84,10 @@ class MainActivity : AudioServiceActivity() {
                 )
             }
             "openFmRadio" -> result.success(openFmRadio())
+            "setVolume" -> {
+                setVolume(call.argument<Double>("value") ?: 0.0)
+                result.success(currentVolume())
+            }
             else -> result.notImplemented()
         }
     }

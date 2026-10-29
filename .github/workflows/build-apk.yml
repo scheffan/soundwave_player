@@ -34,6 +34,23 @@ jobs:
           flutter analyze
           flutter test
 
+      - name: Preparar firma
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::Sin secretos de firma: el APK se firma con una clave temporal y no se podrá instalar encima de otra versión."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/soundwave-release.jks
+          cat > android/key.properties <<EOF
+          storeFile=soundwave-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=soundwave
+          keyPassword=$KEYSTORE_PASSWORD
+          EOF
+
       - name: Compilar APK
         run: flutter build apk --release
 
