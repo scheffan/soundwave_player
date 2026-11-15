@@ -2,6 +2,10 @@
 
 Reproductor de música para Android que funciona **sin internet**, con una sección de **radios online**.
 
+**Sin publicidad, sin rastreadores y sin cuentas.** No recopila datos y solo pide los permisos que necesita: leer tu música, mostrar los controles en las notificaciones e internet únicamente para las radios.
+
+![Reproductor y buscador de radios](docs/capturas/soundwave-app.jpg)
+
 ## Funciones
 
 **Música local (offline)**
